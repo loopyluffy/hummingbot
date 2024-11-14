@@ -1,5 +1,5 @@
 
-# from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
+from hummingbot.core.api_throttler.data_types import RateLimit  # , LinkedLimitWeightPair
 from hummingbot.core.data_type.in_flight_order import OrderState
 
 DEFAULT_DOMAIN = ""
@@ -25,6 +25,8 @@ ACCOUNTS_PATH_URL = "/accounts"
 WALLET_PATH_URL = "/status/wallet"
 CLOSED_ORDER_PATH_URL = "/orders/closed"
 OPEN_ORDER_PATH_URL = "/orders/open"
+CREATE_ORDER_PATH_URL = "/orders" # post
+CANCEL_ORDER_PATH_URL = "/order"  # delete
 
 # Public Websocket types
 PRIVATE_TICKER_TYPE = "ticker"
@@ -86,18 +88,16 @@ NONCE_ERROR = "nonce_used"
 IP_ERROR = "no_authorization_i_p"
 OUT_OF_SCOPE_ERROR = "out_of_scope"
 
-# BitMart has a per method API limit
-# RATE_LIMITS = [
-#     RateLimit(limit_id=CHECK_NETWORK_PATH_URL, limit=10, time_interval=1),
-#     RateLimit(limit_id=GET_TRADING_RULES_PATH_URL, limit=30, time_interval=5),
-#     RateLimit(limit_id=GET_LAST_TRADING_PRICES_PATH_URL, limit=30, time_interval=5),
-#     RateLimit(limit_id=GET_ORDER_BOOK_PATH_URL, limit=30, time_interval=5),
-#     RateLimit(limit_id=CREATE_ORDER_PATH_URL, limit=150, time_interval=5),
-#     RateLimit(limit_id=CANCEL_ORDER_PATH_URL, limit=150, time_interval=5),
-#     RateLimit(limit_id=GET_ACCOUNT_SUMMARY_PATH_URL, limit=30, time_interval=5),
-#     RateLimit(limit_id=GET_ORDER_DETAIL_PATH_URL, limit=150, time_interval=5),
-#     RateLimit(limit_id=GET_TRADE_DETAIL_PATH_URL, limit=30, time_interval=5),
-#     RateLimit(limit_id=SERVER_TIME_PATH, limit=10, time_interval=1),
-#     RateLimit(limit_id=WS_CONNECT, limit=30, time_interval=60),
-#     RateLimit(limit_id=WS_SUBSCRIBE, limit=100, time_interval=10),
-# ]
+# Upbit has a per method API limit
+RATE_LIMITS = [
+    RateLimit(limit_id=EXCHANGE_INFO_MARKET_PATH_URL, limit=10, time_interval=1),
+    RateLimit(limit_id=EXCHANGE_INFO_ORDER_PATH_URL, limit=10, time_interval=1),
+    RateLimit(limit_id=TICKER_PRICE_CHANGE_PATH_URL, limit=10, time_interval=1),
+    RateLimit(limit_id=SNAPSHOT_PATH_URL, limit=10, time_interval=1),
+    RateLimit(limit_id=ACCOUNTS_PATH_URL, limit=10, time_interval=1),
+    RateLimit(limit_id=WALLET_PATH_URL, limit=10, time_interval=1),
+    RateLimit(limit_id=CLOSED_ORDER_PATH_URL, limit=10, time_interval=1),
+    RateLimit(limit_id=OPEN_ORDER_PATH_URL, limit=10, time_interval=1),
+    RateLimit(limit_id=CREATE_ORDER_PATH_URL, limit=8, time_interval=1),
+    RateLimit(limit_id=CANCEL_ORDER_PATH_URL, limit=30, time_interval=1)
+]

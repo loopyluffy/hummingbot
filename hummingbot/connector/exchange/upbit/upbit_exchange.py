@@ -5,14 +5,11 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 from bidict import bidict
 
 from hummingbot.connector.constants import s_decimal_NaN
-from hummingbot.connector.exchange.binance import (
-    binance_constants as CONSTANTS,
-    binance_utils,
-    binance_web_utils as web_utils,
-)
-from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
-from hummingbot.connector.exchange.binance.binance_api_user_stream_data_source import BinanceAPIUserStreamDataSource
-from hummingbot.connector.exchange.binance.binance_auth import BinanceAuth
+from hummingbot.connector.exchange.upbit import upbit_constants as CONSTANTS  # , kraken_web_utils as web_utils
+
+# from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
+# from hummingbot.connector.exchange.binance.binance_api_user_stream_data_source import BinanceAPIUserStreamDataSource
+from hummingbot.connector.exchange.upbit.upbit_auth import UpbitAuth
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import TradeFillOrderDetails, combine_to_hb_trading_pair
@@ -30,7 +27,7 @@ if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 
-class BinanceExchange(ExchangePyBase):
+class UpbitExchange(ExchangePyBase):
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
 
     web_utils = web_utils
@@ -52,7 +49,7 @@ class BinanceExchange(ExchangePyBase):
         super().__init__(client_config_map)
 
     @staticmethod
-    def binance_order_type(order_type: OrderType) -> str:
+    def upbit_order_type(order_type: OrderType) -> str:
         return order_type.name.upper()
 
     @staticmethod
@@ -61,7 +58,7 @@ class BinanceExchange(ExchangePyBase):
 
     @property
     def authenticator(self):
-        return BinanceAuth(
+        return UpbitAuth(
             api_key=self.api_key,
             secret_key=self.secret_key,
             time_provider=self._time_synchronizer)
