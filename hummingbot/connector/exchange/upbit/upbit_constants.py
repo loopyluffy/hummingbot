@@ -7,9 +7,13 @@ HBOT_ORDER_ID_PREFIX = "UPBIT-"
 MAX_ORDER_ID_LEN = 32
 
 # Base URL
-REST_URL = "https://api.upbit.com/v1"
-WSS_PUBLIC_URL = "wss://api.upbit.com/websocket/v1"
-WSS_PRIVATE_URL = "wss://api.upbit.com/websocket/v1/private"
+REST_URL = "https://api.upbit.com/{}"
+WSS_PUBLIC_URL = "wss://api.upbit.com/websocket/{}"
+WSS_PRIVATE_URL = "wss://api.upbit.com/websocket/{}/private"
+WS_PING_TIMEOUT = 60 * 2
+
+PUBLIC_API_VERSION = "v1"
+PRIVATE_API_VERSION = "v1"
 
 # Public API endpoints
 # EXCHANGE_INFO_PATH_URL = "/exchangeInfo"
@@ -38,13 +42,13 @@ PRIVATE_ORDER_TYPE = "myOrder"
 PRIVATE_WALLET_TYPE = "myAsset"
 
 # Upbit params
-SIDE_BUY = "BUY"
-SIDE_SELL = "SELL"
+SIDE_BUY = "bid"
+SIDE_SELL = "ask"
 
 # default; GTC
 # TIME_IN_FORCE_GTC = "GTC"  # Good till cancelled
-TIME_IN_FORCE_IOC = "IOC"  # Immediate or cancel
-TIME_IN_FORCE_FOK = "FOK"  # Fill or kill
+TIME_IN_FORCE_IOC = "ioc"  # Immediate or cancel
+TIME_IN_FORCE_FOK = "fok"  # Fill or kill
 
 # Rate Limit Type
 # REQUEST_WEIGHT = "REQUEST_WEIGHT"

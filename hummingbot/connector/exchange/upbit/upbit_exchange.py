@@ -5,7 +5,11 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 from bidict import bidict
 
 from hummingbot.connector.constants import s_decimal_NaN
-from hummingbot.connector.exchange.upbit import upbit_constants as CONSTANTS  # , kraken_web_utils as web_utils
+from hummingbot.connector.exchange.upbit import (
+    upbit_constants as CONSTANTS,
+    upbit_utils as upbit_utils,
+    upbit_web_utils as web_utils,
+)
 
 # from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
 # from hummingbot.connector.exchange.binance.binance_api_user_stream_data_source import BinanceAPIUserStreamDataSource
@@ -48,13 +52,13 @@ class UpbitExchange(ExchangePyBase):
         self._last_trades_poll_binance_timestamp = 1.0
         super().__init__(client_config_map)
 
-    @staticmethod
-    def upbit_order_type(order_type: OrderType) -> str:
-        return order_type.name.upper()
+    # @staticmethod
+    # def upbit_order_type(order_type: OrderType) -> str:
+    #     return order_type.name.upper()
 
-    @staticmethod
-    def to_hb_order_type(binance_type: str) -> OrderType:
-        return OrderType[binance_type]
+    # @staticmethod
+    # def to_hb_order_type(binance_type: str) -> OrderType:
+    #     return OrderType[binance_type]
 
     @property
     def authenticator(self):
@@ -65,18 +69,15 @@ class UpbitExchange(ExchangePyBase):
 
     @property
     def name(self) -> str:
-        if self._domain == "com":
-            return "binance"
-        else:
-            return f"binance_{self._domain}"
+        return "upbit"
 
     @property
     def rate_limits_rules(self):
         return CONSTANTS.RATE_LIMITS
 
-    @property
-    def domain(self):
-        return self._domain
+    # @property
+    # def domain(self):
+    #     return self._domain
 
     @property
     def client_order_id_max_length(self):
@@ -88,15 +89,15 @@ class UpbitExchange(ExchangePyBase):
 
     @property
     def trading_rules_request_path(self):
-        return CONSTANTS.EXCHANGE_INFO_PATH_URL
+        return CONSTANTS.EXCHANGE_INFO_ORDER_PATH_URL
 
     @property
     def trading_pairs_request_path(self):
-        return CONSTANTS.EXCHANGE_INFO_PATH_URL
+        return CONSTANTS.EXCHANGE_INFO_MARKET_PATH_URL
 
-    @property
-    def check_network_request_path(self):
-        return CONSTANTS.PING_PATH_URL
+    # @property
+    # def check_network_request_path(self):
+    #     return CONSTANTS.PING_PATH_URL
 
     @property
     def trading_pairs(self):
@@ -111,49 +112,51 @@ class UpbitExchange(ExchangePyBase):
         return self._trading_required
 
     def supported_order_types(self):
-        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
+        # return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
+        return [OrderType.LIMIT]
 
-    async def get_all_pairs_prices(self) -> List[Dict[str, str]]:
-        pairs_prices = await self._api_get(path_url=CONSTANTS.TICKER_BOOK_PATH_URL)
-        return pairs_prices
+    # async def get_all_pairs_prices(self) -> List[Dict[str, str]]:
+    #     pairs_prices = await self._api_get(path_url=CONSTANTS.TICKER_BOOK_PATH_URL)
+    #     return pairs_prices
 
-    def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
-        error_description = str(request_exception)
-        is_time_synchronizer_related = ("-1021" in error_description
-                                        and "Timestamp for this request" in error_description)
-        return is_time_synchronizer_related
+    # def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
+    #     error_description = str(request_exception)
+    #     is_time_synchronizer_related = ("-1021" in error_description
+    #                                     and "Timestamp for this request" in error_description)
+    #     return is_time_synchronizer_related
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
-        return str(CONSTANTS.ORDER_NOT_EXIST_ERROR_CODE) in str(
-            status_update_exception
-        ) and CONSTANTS.ORDER_NOT_EXIST_MESSAGE in str(status_update_exception)
+        # TODO: implement this method correctly for the connector
+        # The default implementation was added when the functionality to detect not found orders was introduced in the
+        # ExchangePyBase class. Also fix the unit test test_lost_order_removed_if_not_found_during_order_status_update
+        # when replacing the dummy implementation
+        return False
 
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
-        return str(CONSTANTS.UNKNOWN_ORDER_ERROR_CODE) in str(
-            cancelation_exception
-        ) and CONSTANTS.UNKNOWN_ORDER_MESSAGE in str(cancelation_exception)
+        # TODO: implement this method correctly for the connector
+        # The default implementation was added when the functionality to detect not found orders was introduced in the
+        # ExchangePyBase class. Also fix the unit test test_cancel_order_not_found_in_the_exchange when replacing the
+        # dummy implementation
+        return False
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
             throttler=self._throttler,
             time_synchronizer=self._time_synchronizer,
-            domain=self._domain,
             auth=self._auth)
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
-        return BinanceAPIOrderBookDataSource(
+        return UpbitAPIOrderBookDataSource(
             trading_pairs=self._trading_pairs,
             connector=self,
-            domain=self.domain,
             api_factory=self._web_assistants_factory)
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
-        return BinanceAPIUserStreamDataSource(
+        return UpbitAPIUserStreamDataSource(
             auth=self._auth,
             trading_pairs=self._trading_pairs,
             connector=self,
             api_factory=self._web_assistants_factory,
-            domain=self.domain,
         )
 
     def _get_fee(self,
@@ -164,7 +167,8 @@ class UpbitExchange(ExchangePyBase):
                  amount: Decimal,
                  price: Decimal = s_decimal_NaN,
                  is_maker: Optional[bool] = None) -> TradeFeeBase:
-        is_maker = order_type is OrderType.LIMIT_MAKER
+        # is_maker = order_type is OrderType.LIMIT_MAKER
+        is_maker = True
         return DeductedFromReturnsTradeFee(percent=self.estimate_fee_pct(is_maker))
 
     async def _place_order(self,
@@ -185,6 +189,15 @@ class UpbitExchange(ExchangePyBase):
                       "quantity": amount_str,
                       "type": type_str,
                       "newClientOrderId": order_id}
+        
+        api_params = {
+            'market': 'KRW-BTC',
+            'side': 'bid',
+            'ord_type': 'limit',
+            'price': '100.0',
+            'volume': '0.01'
+        }
+
         if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
             price_str = f"{price:f}"
             api_params["price"] = price_str
@@ -251,7 +264,7 @@ class UpbitExchange(ExchangePyBase):
         """
         trading_pair_rules = exchange_info_dict.get("symbols", [])
         retval = []
-        for rule in filter(binance_utils.is_exchange_information_valid, trading_pair_rules):
+        for rule in filter(upbit_utils.is_exchange_information_valid, trading_pair_rules):
             try:
                 trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=rule.get("symbol"))
                 filters = rule.get("filters")
@@ -275,9 +288,9 @@ class UpbitExchange(ExchangePyBase):
                 self.logger().exception(f"Error parsing the trading pair rule {rule}. Skipping.")
         return retval
 
-    async def _status_polling_loop_fetch_updates(self):
-        await self._update_order_fills_from_trades()
-        await super()._status_polling_loop_fetch_updates()
+    # async def _status_polling_loop_fetch_updates(self):
+    #     await self._update_order_fills_from_trades()
+    #     await super()._status_polling_loop_fetch_updates()
 
     async def _update_trading_fees(self):
         """
@@ -531,7 +544,7 @@ class UpbitExchange(ExchangePyBase):
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         mapping = bidict()
-        for symbol_data in filter(binance_utils.is_exchange_information_valid, exchange_info["symbols"]):
+        for symbol_data in filter(upbit_utils.is_exchange_information_valid, exchange_info["symbols"]):
             mapping[symbol_data["symbol"]] = combine_to_hb_trading_pair(base=symbol_data["baseAsset"],
                                                                         quote=symbol_data["quoteAsset"])
         self._set_trading_pair_symbol_map(mapping)
