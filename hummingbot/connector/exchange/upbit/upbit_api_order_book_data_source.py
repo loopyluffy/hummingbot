@@ -102,6 +102,79 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
             )
             raise
 
+    # async def _subscribe_channels(self, ws: WSAssistant):
+    #     """
+    #     Doc : https://docs.upbit.com/docs/upbit-quotation-websocket
+
+    #     For subscription, ticket information is commonly required.
+    #     In order to reduce the data size, format parameter is set to 'SIMPLE' instead of 'DEFAULT'
+
+
+    #     Examples (Note that the positions of the base and quote currencies are swapped.)
+
+    #     1. In order to get TRADES of "BTC-KRW" and "XRP-BTC" markets.
+    #     > [{"ticket":"UNIQUE_TICKET"},{"type":"trade","codes":["KRW-BTC","BTC-XRP"]}]
+
+    #     2. In order to get ORDERBOOK of "BTC-KRW" and "XRP-BTC" markets.
+    #     > [{"ticket":"UNIQUE_TICKET"},{"type":"orderbook","codes":["KRW-BTC","BTC-XRP"]}]
+
+    #     3. In order to get TRADES of "BTC-KRW" and ORDERBOOK of "ETH-KRW"
+    #     > [{"ticket":"UNIQUE_TICKET"},{"type":"trade","codes":["KRW-BTC"]},{"type":"orderbook","codes":["KRW-ETH"]}]
+
+    #     4. In order to get TRADES of "BTC-KRW", ORDERBOOK of "ETH-KRW and TICKER of "EOS-KRW"
+    #     > [{"ticket":"UNIQUE_TICKET"},{"type":"trade","codes":["KRW-BTC"]},{"type":"orderbook","codes":["KRW-ETH"]},{"type":"ticker", "codes":["KRW-EOS"]}]
+
+    #     5. In order to get TRADES of "BTC-KRW", ORDERBOOK of "ETH-KRW and TICKER of "EOS-KRW" with in shorter format
+    #     > [{"ticket":"UNIQUE_TICKET"},{"format":"SIMPLE"},{"type":"trade","codes":["KRW-BTC"]},{"type":"orderbook","codes":["KRW-ETH"]},{"type":"ticker", "codes":["KRW-EOS"]}]
+    #     """
+
+    #     try:
+    #     except asyncio.CancelledError:
+    #         raise
+    #     except Exception:
+    #         self.logger().error(
+    #             "Unexpected error occurred subscribing to order book trading and delta streams...",
+    #             exc_info=True
+    #         )
+    #         raise
+
+    # subcribe method of cryptofeed @luffy
+    async def subscribe(self, conn: AsyncConnection):
+        """
+        Doc : https://docs.upbit.com/docs/upbit-quotation-websocket
+
+        For subscription, ticket information is commonly required.
+        In order to reduce the data size, format parameter is set to 'SIMPLE' instead of 'DEFAULT'
+
+
+        Examples (Note that the positions of the base and quote currencies are swapped.)
+
+        1. In order to get TRADES of "BTC-KRW" and "XRP-BTC" markets.
+        > [{"ticket":"UNIQUE_TICKET"},{"type":"trade","codes":["KRW-BTC","BTC-XRP"]}]
+
+        2. In order to get ORDERBOOK of "BTC-KRW" and "XRP-BTC" markets.
+        > [{"ticket":"UNIQUE_TICKET"},{"type":"orderbook","codes":["KRW-BTC","BTC-XRP"]}]
+
+        3. In order to get TRADES of "BTC-KRW" and ORDERBOOK of "ETH-KRW"
+        > [{"ticket":"UNIQUE_TICKET"},{"type":"trade","codes":["KRW-BTC"]},{"type":"orderbook","codes":["KRW-ETH"]}]
+
+        4. In order to get TRADES of "BTC-KRW", ORDERBOOK of "ETH-KRW and TICKER of "EOS-KRW"
+        > [{"ticket":"UNIQUE_TICKET"},{"type":"trade","codes":["KRW-BTC"]},{"type":"orderbook","codes":["KRW-ETH"]},{"type":"ticker", "codes":["KRW-EOS"]}]
+
+        5. In order to get TRADES of "BTC-KRW", ORDERBOOK of "ETH-KRW and TICKER of "EOS-KRW" with in shorter format
+        > [{"ticket":"UNIQUE_TICKET"},{"format":"SIMPLE"},{"type":"trade","codes":["KRW-BTC"]},{"type":"orderbook","codes":["KRW-ETH"]},{"type":"ticker", "codes":["KRW-EOS"]}]
+        """
+
+        chans = [{"ticket": uuid.uuid4()}, {"format": "SIMPLE"}]
+        for chan in self.subscription:
+            codes = list(self.subscription[chan])
+            if chan == L2_BOOK:
+                chans.append({"type": "orderbook", "codes": codes, 'isOnlyRealtime': True})
+            if chan == TRADES:
+                chans.append({"type": "trade", "codes": codes, 'isOnlyRealtime': True})
+
+        await conn.write(json.dumps(chans))
+
     async def _connected_websocket_assistant(self) -> WSAssistant:
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
         await ws.connect(ws_url=CONSTANTS.WSS_URL.format(self._domain),

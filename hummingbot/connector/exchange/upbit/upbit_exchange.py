@@ -52,13 +52,13 @@ class UpbitExchange(ExchangePyBase):
         self._last_trades_poll_binance_timestamp = 1.0
         super().__init__(client_config_map)
 
-    # @staticmethod
-    # def upbit_order_type(order_type: OrderType) -> str:
-    #     return order_type.name.upper()
+    @staticmethod
+    def upbit_order_type(order_type: OrderType) -> str:
+        return order_type.name.upper()
 
-    # @staticmethod
-    # def to_hb_order_type(binance_type: str) -> OrderType:
-    #     return OrderType[binance_type]
+    @staticmethod
+    def to_hb_order_type(binance_type: str) -> OrderType:
+        return OrderType[binance_type]
 
     @property
     def authenticator(self):
@@ -181,7 +181,7 @@ class UpbitExchange(ExchangePyBase):
                            **kwargs) -> Tuple[str, float]:
         order_result = None
         amount_str = f"{amount:f}"
-        type_str = BinanceExchange.binance_order_type(order_type)
+        type_str = UpbitExchange.upbit_order_type(order_type)
         side_str = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         api_params = {"symbol": symbol,
