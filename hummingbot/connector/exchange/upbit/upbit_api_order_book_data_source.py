@@ -65,82 +65,6 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _subscribe_channels(self, ws: WSAssistant):
         """
-        Subscribes to the trade events and diff orders events through the provided websocket connection.
-        :param ws: the websocket assistant used to connect to the exchange
-        """
-        try:
-            trade_params = []
-            depth_params = []
-            for trading_pair in self._trading_pairs:
-                symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-                trade_params.append(f"{symbol.lower()}@trade")
-                depth_params.append(f"{symbol.lower()}@depth@100ms")
-            payload = {
-                "method": "SUBSCRIBE",
-                "params": trade_params,
-                "id": 1
-            }
-            subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=payload)
-
-            payload = {
-                "method": "SUBSCRIBE",
-                "params": depth_params,
-                "id": 2
-            }
-            subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=payload)
-
-            await ws.send(subscribe_trade_request)
-            await ws.send(subscribe_orderbook_request)
-
-            self.logger().info("Subscribed to public order book and trade channels...")
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            self.logger().error(
-                "Unexpected error occurred subscribing to order book trading and delta streams...",
-                exc_info=True
-            )
-            raise
-
-    # async def _subscribe_channels(self, ws: WSAssistant):
-    #     """
-    #     Doc : https://docs.upbit.com/docs/upbit-quotation-websocket
-
-    #     For subscription, ticket information is commonly required.
-    #     In order to reduce the data size, format parameter is set to 'SIMPLE' instead of 'DEFAULT'
-
-
-    #     Examples (Note that the positions of the base and quote currencies are swapped.)
-
-    #     1. In order to get TRADES of "BTC-KRW" and "XRP-BTC" markets.
-    #     > [{"ticket":"UNIQUE_TICKET"},{"type":"trade","codes":["KRW-BTC","BTC-XRP"]}]
-
-    #     2. In order to get ORDERBOOK of "BTC-KRW" and "XRP-BTC" markets.
-    #     > [{"ticket":"UNIQUE_TICKET"},{"type":"orderbook","codes":["KRW-BTC","BTC-XRP"]}]
-
-    #     3. In order to get TRADES of "BTC-KRW" and ORDERBOOK of "ETH-KRW"
-    #     > [{"ticket":"UNIQUE_TICKET"},{"type":"trade","codes":["KRW-BTC"]},{"type":"orderbook","codes":["KRW-ETH"]}]
-
-    #     4. In order to get TRADES of "BTC-KRW", ORDERBOOK of "ETH-KRW and TICKER of "EOS-KRW"
-    #     > [{"ticket":"UNIQUE_TICKET"},{"type":"trade","codes":["KRW-BTC"]},{"type":"orderbook","codes":["KRW-ETH"]},{"type":"ticker", "codes":["KRW-EOS"]}]
-
-    #     5. In order to get TRADES of "BTC-KRW", ORDERBOOK of "ETH-KRW and TICKER of "EOS-KRW" with in shorter format
-    #     > [{"ticket":"UNIQUE_TICKET"},{"format":"SIMPLE"},{"type":"trade","codes":["KRW-BTC"]},{"type":"orderbook","codes":["KRW-ETH"]},{"type":"ticker", "codes":["KRW-EOS"]}]
-    #     """
-
-    #     try:
-    #     except asyncio.CancelledError:
-    #         raise
-    #     except Exception:
-    #         self.logger().error(
-    #             "Unexpected error occurred subscribing to order book trading and delta streams...",
-    #             exc_info=True
-    #         )
-    #         raise
-
-    # subcribe method of cryptofeed @luffy
-    async def subscribe(self, conn: AsyncConnection):
-        """
         Doc : https://docs.upbit.com/docs/upbit-quotation-websocket
 
         For subscription, ticket information is commonly required.
@@ -163,17 +87,62 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         5. In order to get TRADES of "BTC-KRW", ORDERBOOK of "ETH-KRW and TICKER of "EOS-KRW" with in shorter format
         > [{"ticket":"UNIQUE_TICKET"},{"format":"SIMPLE"},{"type":"trade","codes":["KRW-BTC"]},{"type":"orderbook","codes":["KRW-ETH"]},{"type":"ticker", "codes":["KRW-EOS"]}]
+        
+        :param isOnlySnapshot: 시세 스냅샷만 제공 여부
+        :type isOnlySnapshot: bool
+
+        :param isOnlyRealtime: 실시간 시세만 제공 여부
+        :type isOnlyRealtime: bool
+
+        :param format: 포맷 (`SIMPLE`: 간소화된 필드명, `DEFAULT`: 기본값 (생략 가능))
+        :type format: str
         """
 
-        chans = [{"ticket": uuid.uuid4()}, {"format": "SIMPLE"}]
-        for chan in self.subscription:
-            codes = list(self.subscription[chan])
-            if chan == L2_BOOK:
-                chans.append({"type": "orderbook", "codes": codes, 'isOnlyRealtime': True})
-            if chan == TRADES:
-                chans.append({"type": "trade", "codes": codes, 'isOnlyRealtime': True})
+        try:
+            payload = []
+            trading_pairs: List[str] = []
+            for tp in self._trading_pairs:
+                trading_pairs.append(tp.upper())
+                # trading_pairs.append(convert_to_exchange_trading_pair(tp, '/'))
+                # symbol = convert_to_exchange_trading_pair(tp, ',')
+                # symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+                # trading_pairs.append(symbol.upper())
+            # codes = ['KRW-BTC', 'KRW-ETH', 'KRW-BCH', 'KRW-XRP'] 
+            # codes = ["KRW-BTC.5", "KRW-ETH.5"]
 
-        await conn.write(json.dumps(chans))
+            trades_payload = {
+                "type": "trade",
+                "codes": codes,
+                'isOnlyRealtime': True
+                # 'isOnlySnapshot': True
+            }
+            order_book_payload = {
+                "type": "orderbook",
+                "codes": codes,
+                'isOnlyRealtime': True
+                # 'isOnlySnapshot': True
+            }
+
+            import uuid
+            ticket = str(uuid.uuid4())
+            payload.append( { "ticket": ticket } )
+            payload.extend(trades_payload)
+            payload.extend(order_book_payload)
+            payload.append( { "format": "SIMPLE" } ) # "SIMPLE" or "DEFAULT"
+            # json.dumps(payload)
+
+            subscribe_request: WSJSONRequest = WSJSONRequest(payload=payload)
+            await ws.send(subscribe_request)
+
+            self.logger().info("Subscribed to public order book and trade channels...")
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().error(
+                "Unexpected error occurred subscribing to order book trading and delta streams...",
+                exc_info=True
+            )
+            raise
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         ws: WSAssistant = await self._api_factory.get_ws_assistant()

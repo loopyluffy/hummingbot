@@ -3,7 +3,7 @@ filename = *.py, *.pyx, *.pxd
 ; @original
 ; ignore = E251, E501,E702,W504,W503
 ; @luffy
-ignore = E251,E301,E303,E501,E702,W504,W503,E261,F821,W291,W293,E302,E721,W391,F401
+ignore = E201,E202,E251,E301,E303,E501,E702,W504,W503,E261,F821,W291,W293,E302,E721,W391,F401
 per-file-ignores =
     hummingbot/**/*.pyx: E225, E226, E251, E999
     hummingbot/**/*.pxd: E225, E226, E251, E999
