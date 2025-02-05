@@ -2,8 +2,8 @@ import asyncio
 import time
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from hummingbot.connector.exchange.binance import binance_constants as CONSTANTS, binance_web_utils as web_utils
-from hummingbot.connector.exchange.binance.binance_order_book import BinanceOrderBook
+from hummingbot.connector.exchange.upbit import upbit_constants as CONSTANTS, upbit_web_utils as web_utils
+from hummingbot.connector.exchange.upbit.upbit_order_book import UpbitOrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest
@@ -12,20 +12,20 @@ from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
 if TYPE_CHECKING:
-    from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
+    from hummingbot.connector.exchange.upbit.upbit_exchange import UpbitExchange
 
 
-class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
-    HEARTBEAT_TIME_INTERVAL = 30.0
-    TRADE_STREAM_ID = 1
-    DIFF_STREAM_ID = 2
-    ONE_HOUR = 60 * 60
+class UpbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
+    # HEARTBEAT_TIME_INTERVAL = 30.0
+    # TRADE_STREAM_ID = 1
+    # DIFF_STREAM_ID = 2
+    # ONE_HOUR = 60 * 60
 
     _logger: Optional[HummingbotLogger] = None
 
     def __init__(self,
                  trading_pairs: List[str],
-                 connector: 'BinanceExchange',
+                 connector: 'UpbitExchange',
                  api_factory: WebAssistantsFactory,
                  domain: str = CONSTANTS.DEFAULT_DOMAIN):
         super().__init__(trading_pairs)
@@ -87,7 +87,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         5. In order to get TRADES of "BTC-KRW", ORDERBOOK of "ETH-KRW and TICKER of "EOS-KRW" with in shorter format
         > [{"ticket":"UNIQUE_TICKET"},{"format":"SIMPLE"},{"type":"trade","codes":["KRW-BTC"]},{"type":"orderbook","codes":["KRW-ETH"]},{"type":"ticker", "codes":["KRW-EOS"]}]
-        
+
         :param isOnlySnapshot: 시세 스냅샷만 제공 여부
         :type isOnlySnapshot: bool
 
@@ -102,33 +102,33 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
             payload = []
             trading_pairs: List[str] = []
             for tp in self._trading_pairs:
-                trading_pairs.append(tp.upper())
+                # code = "-".join(tp.split("-")[::-1])
+                # trading_pairs.append(code.upper())
                 # trading_pairs.append(convert_to_exchange_trading_pair(tp, '/'))
-                # symbol = convert_to_exchange_trading_pair(tp, ',')
-                # symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-                # trading_pairs.append(symbol.upper())
-            # codes = ['KRW-BTC', 'KRW-ETH', 'KRW-BCH', 'KRW-XRP'] 
-            # codes = ["KRW-BTC.5", "KRW-ETH.5"]
+                symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=tp)
+                trading_pairs.append(symbol.upper())
+            # codes = ['KRW-BTC', 'KRW-ETH', 'KRW-BCH', 'KRW-XRP']
+            # # codes = ["KRW-BTC.5", "KRW-ETH.5"]
 
             trades_payload = {
                 "type": "trade",
-                "codes": codes,
+                "codes": trading_pairs,
                 'isOnlyRealtime': True
                 # 'isOnlySnapshot': True
             }
             order_book_payload = {
                 "type": "orderbook",
-                "codes": codes,
+                "codes": trading_pairs,
                 'isOnlyRealtime': True
                 # 'isOnlySnapshot': True
             }
 
             import uuid
             ticket = str(uuid.uuid4())
-            payload.append( { "ticket": ticket } )
+            payload.append({"ticket": ticket})
             payload.extend(trades_payload)
             payload.extend(order_book_payload)
-            payload.append( { "format": "SIMPLE" } ) # "SIMPLE" or "DEFAULT"
+            payload.append({"format": "SIMPLE"})  # "SIMPLE" or "DEFAULT"
             # json.dumps(payload)
 
             subscribe_request: WSJSONRequest = WSJSONRequest(payload=payload)
@@ -146,14 +146,15 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
-        await ws.connect(ws_url=CONSTANTS.WSS_URL.format(self._domain),
+        # await ws.connect(ws_url=CONSTANTS.WSS_URL.format(self._domain),
+        await ws.connect(ws_url=CONSTANTS.WSS_PUBLIC_URL.format(CONSTANTS.PUBLIC_API_VERSION),
                          ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
         return ws
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
         snapshot_timestamp: float = time.time()
-        snapshot_msg: OrderBookMessage = BinanceOrderBook.snapshot_message_from_exchange(
+        snapshot_msg: OrderBookMessage = UpbitOrderBook.snapshot_message_from_exchange(
             snapshot,
             snapshot_timestamp,
             metadata={"trading_pair": trading_pair}
@@ -162,15 +163,15 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         if "result" not in raw_message:
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["s"])
-            trade_message = BinanceOrderBook.trade_message_from_exchange(
+            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["cd"])  # code
+            trade_message = UpbitOrderBook.trade_message_from_exchange(
                 raw_message, {"trading_pair": trading_pair})
             message_queue.put_nowait(trade_message)
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         if "result" not in raw_message:
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["s"])
-            order_book_message: OrderBookMessage = BinanceOrderBook.diff_message_from_exchange(
+            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["cd"])  # code
+            order_book_message: OrderBookMessage = UpbitOrderBook.diff_message_from_exchange(
                 raw_message, time.time(), {"trading_pair": trading_pair})
             message_queue.put_nowait(order_book_message)
 

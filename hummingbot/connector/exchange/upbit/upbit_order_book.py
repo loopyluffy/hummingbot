@@ -5,7 +5,7 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 
 
-class BinanceOrderBook(OrderBook):
+class UpbitOrderBook(OrderBook):
 
     @classmethod
     def snapshot_message_from_exchange(cls,
@@ -23,9 +23,10 @@ class BinanceOrderBook(OrderBook):
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
             "trading_pair": msg["trading_pair"],
-            "update_id": msg["lastUpdateId"],
-            "bids": msg["bids"],
-            "asks": msg["asks"]
+            # "update_id": msg["lastUpdateId"],
+            "update_id": msg["tms"],  # timestamp
+            "bids": [(order["bp"], order["bs"]) for order in msg["obu"]],  # orderbook_units.bid_price, bid_size
+            "asks": [(order["ap"], order["as"]) for order in msg["obu"]]   # orderbook_units.ask_price, ask_size
         }, timestamp=timestamp)
 
     @classmethod
@@ -44,10 +45,11 @@ class BinanceOrderBook(OrderBook):
             msg.update(metadata)
         return OrderBookMessage(OrderBookMessageType.DIFF, {
             "trading_pair": msg["trading_pair"],
-            "first_update_id": msg["U"],
-            "update_id": msg["u"],
-            "bids": msg["b"],
-            "asks": msg["a"]
+            # "first_update_id": msg["U"],
+            # "update_id": msg["u"],
+            "update_id": msg["tms"],  # msg["timestamp"],
+            "bids": [(order["bp"], order["bs"]) for order in msg["obu"]],
+            "asks": [(order["ap"], order["as"]) for order in msg["obu"]]
         }, timestamp=timestamp)
 
     @classmethod
@@ -60,12 +62,13 @@ class BinanceOrderBook(OrderBook):
         """
         if metadata:
             msg.update(metadata)
-        ts = msg["E"]
+        ts = float(msg["tms"])
         return OrderBookMessage(OrderBookMessageType.TRADE, {
             "trading_pair": msg["trading_pair"],
-            "trade_type": float(TradeType.SELL.value) if msg["m"] else float(TradeType.BUY.value),
-            "trade_id": msg["t"],
-            "update_id": ts,
-            "price": msg["p"],
-            "amount": msg["q"]
+            "trade_type": float(TradeType.SELL.value) if msg["ab"] == "ASK" else float(TradeType.BUY.value),  # ask_bid
+            "trade_id": msg["sid"],   # sid;sequential_id
+            "update_id": msg["tms"],  # tms;timestamp
+            "price": msg["tp"],       # tp;trade_price
+            "amount": msg["tv"]       # tv;trade_volume
         }, timestamp=ts * 1e-3)
+        # }, timestamp=ts)

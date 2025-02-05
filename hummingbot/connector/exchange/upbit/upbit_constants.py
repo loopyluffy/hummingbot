@@ -27,19 +27,20 @@ SNAPSHOT_PATH_URL = "/orderbook"
 # Private API endpoints
 ACCOUNTS_PATH_URL = "/accounts"
 WALLET_PATH_URL = "/status/wallet"
+ORDER_PATH_URL = "/orders/uuids"
 CLOSED_ORDER_PATH_URL = "/orders/closed"
 OPEN_ORDER_PATH_URL = "/orders/open"
-CREATE_ORDER_PATH_URL = "/orders" # post
-CANCEL_ORDER_PATH_URL = "/order"  # delete
+CREATE_ORDER_PATH_URL = "/orders"  # post
+CANCEL_ORDER_PATH_URL = "/order"   # delete
 
-# Public Websocket types
-PRIVATE_TICKER_TYPE = "ticker"
-PRIVATE_TRADE_TYPE = "trade"
-PRIVATE_ORDERBOOK_TYPE = "orderbook"
+# Public Websocket channel types
+PUBLIC_TICKER_CHANNEL_TYPE = "ticker"
+PUBLIC_TRADE_CHANNEL_TYPE = "trade"
+PUBLIC_ORDERBOOK_CHANNEL_TYPE = "orderbook"
 
 # Private Websocket types
-PRIVATE_ORDER_TYPE = "myOrder"
-PRIVATE_WALLET_TYPE = "myAsset"
+PRIVATE_ORDER_CHANNEL_TYPE = "myOrder"
+PRIVATE_WALLET_CHANNEL_TYPE = "myAsset"
 
 # Upbit params
 SIDE_BUY = "bid"
@@ -47,8 +48,8 @@ SIDE_SELL = "ask"
 
 # default; GTC
 # TIME_IN_FORCE_GTC = "GTC"  # Good till cancelled
-TIME_IN_FORCE_IOC = "ioc"  # Immediate or cancel
-TIME_IN_FORCE_FOK = "fok"  # Fill or kill
+TIME_IN_FORCE_IOC = "ioc"    # Immediate or cancel
+TIME_IN_FORCE_FOK = "fok"    # Fill or kill
 
 # Rate Limit Type
 # REQUEST_WEIGHT = "REQUEST_WEIGHT"
@@ -67,6 +68,7 @@ TIME_IN_FORCE_FOK = "fok"  # Fill or kill
 ORDER_STATE = {
     "wait": OrderState.OPEN,
     "watch": OrderState.PENDING_CREATE,
+    "trade": OrderState.PARTIALLY_FILLED,
     "done": OrderState.FILLED,
     "cancel": OrderState.CANCELED
 }

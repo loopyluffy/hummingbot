@@ -7,11 +7,11 @@ from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, C
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 CENTRALIZED = True
-EXAMPLE_PAIR = "ZRX-ETH"
+EXAMPLE_PAIR = "KRW-ETH"
 
 DEFAULT_FEES = TradeFeeSchema(
-    maker_percent_fee_decimal=Decimal("0.001"),
-    taker_percent_fee_decimal=Decimal("0.001"),
+    maker_percent_fee_decimal=Decimal("0.0005"),
+    taker_percent_fee_decimal=Decimal("0.0005"),
     buy_percent_fee_deducted_from_returns=True
 )
 
@@ -22,28 +22,8 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
     :param exchange_info: the exchange information for a trading pair
     :return: True if the trading pair is enabled, False otherwise
     """
-    return exchange_info.get("market", {}).get("state") == "active"
-
-# Decompress WebSocket messages
-def decompress_ws_message(message):
-    if type(message) == bytes:
-        decompress = zlib.decompressobj(-zlib.MAX_WBITS)
-        inflated = decompress.decompress(message)
-        inflated += decompress.flush()
-        return inflated.decode('UTF-8')
-    else:
-        return message
-
-
-def compress_ws_message(message):
-    if type(message) == str:
-        message = message.encode()
-        compress = zlib.compressobj(wbits=-zlib.MAX_WBITS)
-        deflated = compress.compress(message)
-        deflated += compress.flush()
-        return deflated
-    else:
-        return message
+    # return exchange_info.get("market", {}).get("state") == "active"
+    return True
 
 
 class UpbitConfigMap(BaseConnectorConfigMap):
@@ -72,4 +52,3 @@ class UpbitConfigMap(BaseConnectorConfigMap):
 
 
 KEYS = UpbitConfigMap.construct()
-
