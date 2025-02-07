@@ -21,12 +21,19 @@ class UpbitOrderBook(OrderBook):
         """
         if metadata:
             msg.update(metadata)
+        # return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
+        #     "trading_pair": msg["trading_pair"],
+        #     # "update_id": msg["lastUpdateId"],
+        #     "update_id": msg["tms"],  # timestamp
+        #     "bids": [(order["bp"], order["bs"]) for order in msg["obu"]],  # orderbook_units.bid_price, bid_size
+        #     "asks": [(order["ap"], order["as"]) for order in msg["obu"]]   # orderbook_units.ask_price, ask_size
+        # }, timestamp=timestamp)
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
             "trading_pair": msg["trading_pair"],
             # "update_id": msg["lastUpdateId"],
-            "update_id": msg["tms"],  # timestamp
-            "bids": [(order["bp"], order["bs"]) for order in msg["obu"]],  # orderbook_units.bid_price, bid_size
-            "asks": [(order["ap"], order["as"]) for order in msg["obu"]]   # orderbook_units.ask_price, ask_size
+            "update_id": msg["timestamp"],  # timestamp
+            "bids": [(order["bid_price"], order["bid_size"]) for order in msg["orderbook_units"]],  # orderbook_units.bid_price, bid_size
+            "asks": [(order["ask_price"], order["ask_size"]) for order in msg["orderbook_units"]]   # orderbook_units.ask_price, ask_size
         }, timestamp=timestamp)
 
     @classmethod

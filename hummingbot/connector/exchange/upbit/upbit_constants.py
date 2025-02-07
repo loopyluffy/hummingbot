@@ -73,7 +73,7 @@ ORDER_STATE = {
     "cancel": OrderState.CANCELED
 }
 
-WS_HEARTBEAT_TIME_INTERVAL = 30
+WS_HEARTBEAT_TIME_INTERVAL = 60
 
 # Request error codes
 # RET_CODE_OK = 0

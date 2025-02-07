@@ -30,6 +30,20 @@ class UpbitAuth(AuthBase):
         return request
 
     async def ws_authenticate(self, request: WSRequest) -> WSRequest:
+        # payload = {
+        #     'access_key': self.api_key,
+        #     'nonce': str(uuid.uuid4()),
+        # }
+
+        # jwt_token = jwt.encode(payload, self.secret_key)
+        # authorization_token = 'Bearer {}'.format(jwt_token)
+        # headers = {"Authorization": authorization_token}
+        # request.headers = headers
+        request.headers = self.get_auth_headers()
+
+        return request  # pass-through
+
+    def get_auth_headers(self):
         payload = {
             'access_key': self.api_key,
             'nonce': str(uuid.uuid4()),
@@ -38,9 +52,8 @@ class UpbitAuth(AuthBase):
         jwt_token = jwt.encode(payload, self.secret_key)
         authorization_token = 'Bearer {}'.format(jwt_token)
         headers = {"Authorization": authorization_token}
-        request.headers = headers
 
-        return request  # pass-through
+        return headers
 
     def generate_payload(self, request):
         params = request.params

@@ -8,8 +8,9 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 from bidict import bidict
 
 from hummingbot.connector.constants import s_decimal_NaN
-from hummingbot.connector.exchange.upbit import (  # upbit_utils as upbit_utils,
+from hummingbot.connector.exchange.upbit import (
     upbit_constants as CONSTANTS,
+    upbit_utils as upbit_utils,
     upbit_web_utils as web_utils,
 )
 from hummingbot.connector.exchange.upbit.upbit_api_order_book_data_source import UpbitAPIOrderBookDataSource
@@ -40,14 +41,14 @@ class UpbitExchange(ExchangePyBase):
 
     def __init__(self,
                  client_config_map: "ClientConfigAdapter",
-                 binance_api_key: str,
-                 binance_api_secret: str,
+                 upbit_api_key: str,
+                 upbit_api_secret: str,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True,
                  domain: str = CONSTANTS.DEFAULT_DOMAIN,
                  ):
-        self.api_key = binance_api_key
-        self.secret_key = binance_api_secret
+        self.api_key = upbit_api_key
+        self.secret_key = upbit_api_secret
         self._domain = domain
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
@@ -77,9 +78,9 @@ class UpbitExchange(ExchangePyBase):
     def rate_limits_rules(self):
         return CONSTANTS.RATE_LIMITS
 
-    # @property
-    # def domain(self):
-    #     return self._domain
+    @property
+    def domain(self):
+        return self._domain
 
     @property
     def client_order_id_max_length(self):
@@ -97,9 +98,10 @@ class UpbitExchange(ExchangePyBase):
     def trading_pairs_request_path(self):
         return CONSTANTS.EXCHANGE_INFO_MARKET_PATH_URL
 
-    # @property
-    # def check_network_request_path(self):
-    #     return CONSTANTS.PING_PATH_URL
+    @property
+    def check_network_request_path(self):
+        # return CONSTANTS.PING_PATH_URL
+        return CONSTANTS.EXCHANGE_INFO_MARKET_PATH_URL
 
     @property
     def trading_pairs(self):
@@ -121,11 +123,11 @@ class UpbitExchange(ExchangePyBase):
     #     pairs_prices = await self._api_get(path_url=CONSTANTS.TICKER_BOOK_PATH_URL)
     #     return pairs_prices
 
-    # def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
-    #     error_description = str(request_exception)
-    #     is_time_synchronizer_related = ("-1021" in error_description
-    #                                     and "Timestamp for this request" in error_description)
-    #     return is_time_synchronizer_related
+    def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
+        # error_description = str(request_exception)
+        # is_time_synchronizer_related = ("-1021" in error_description and "Timestamp for this request" in error_description)
+        # return is_time_synchronizer_related
+        return False
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
         # TODO: implement this method correctly for the connector
@@ -144,7 +146,7 @@ class UpbitExchange(ExchangePyBase):
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
             throttler=self._throttler,
-            time_synchronizer=self._time_synchronizer,
+            # time_synchronizer=self._time_synchronizer,
             auth=self._auth)
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
@@ -251,6 +253,8 @@ class UpbitExchange(ExchangePyBase):
         """
         async for event_message in self._iter_user_event_queue():
             try:
+                # preprocessing for message
+                event_message = upbit_utils.preprocessing_message(event_message)
                 event_type = event_message.get("ty")  # ty;type
                 # Refer to https://docs.upbit.com/reference/websocket-myorder
                 if event_type == CONSTANTS.PRIVATE_ORDER_CHANNEL_TYPE:
@@ -398,17 +402,10 @@ class UpbitExchange(ExchangePyBase):
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
-    # def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
-    #     mapping = bidict()
-    #     for symbol_data in filter(upbit_utils.is_exchange_information_valid, exchange_info["symbols"]):
-    #         mapping[symbol_data["symbol"]] = combine_to_hb_trading_pair(base=symbol_data["baseAsset"],
-    #                                                                     quote=symbol_data["quoteAsset"])
-    #     self._set_trading_pair_symbol_map(mapping)
-
-    def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
+    def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info):
         mapping = bidict()
         # for symbol_data in filter(upbit_utils.is_exchange_information_valid, exchange_info.values()):
-        for symbol_data in exchange_info.values():
+        for symbol_data in exchange_info:
             quote_asset, base_asset = symbol_data["market"].split("-")
             mapping[symbol_data["market"]] = combine_to_hb_trading_pair(base=base_asset,
                                                                         quote=quote_asset)
@@ -433,7 +430,8 @@ class UpbitExchange(ExchangePyBase):
     async def _update_trading_rules(self):
         # upbit's rule is static...
         # define order_price_quantum and order_size_quantum manually;;
-        return
+        # dummy data for compatibility
+        self._trading_rules["LOOPY-KRW"] = TradingRule("LOOPY-KRW")
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal) -> Decimal:
         # reference https://docs.upbit.com/docs/krw-market-info

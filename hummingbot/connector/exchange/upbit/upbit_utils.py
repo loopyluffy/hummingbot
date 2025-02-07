@@ -1,3 +1,4 @@
+import json
 from decimal import Decimal
 from typing import Any, Dict
 
@@ -24,6 +25,15 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
     """
     # return exchange_info.get("market", {}).get("state") == "active"
     return True
+
+
+def preprocessing_message(event_message):
+    event_message = event_message.decode('utf8')
+    # if type(event_message) == str:
+    if isinstance(event_message, str):
+        event_message = json.loads(event_message)
+
+    return event_message
 
 
 class UpbitConfigMap(BaseConnectorConfigMap):

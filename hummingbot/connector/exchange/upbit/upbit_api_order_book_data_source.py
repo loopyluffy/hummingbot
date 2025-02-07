@@ -2,7 +2,11 @@ import asyncio
 import time
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from hummingbot.connector.exchange.upbit import upbit_constants as CONSTANTS, upbit_web_utils as web_utils
+from hummingbot.connector.exchange.upbit import (
+    upbit_constants as CONSTANTS,
+    upbit_utils as upbit_utils,
+    upbit_web_utils as web_utils,
+)
 from hummingbot.connector.exchange.upbit.upbit_order_book import UpbitOrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -30,8 +34,8 @@ class UpbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                  domain: str = CONSTANTS.DEFAULT_DOMAIN):
         super().__init__(trading_pairs)
         self._connector = connector
-        self._trade_messages_queue_key = CONSTANTS.TRADE_EVENT_TYPE
-        self._diff_messages_queue_key = CONSTANTS.DIFF_EVENT_TYPE
+        self._trade_messages_queue_key = CONSTANTS.PUBLIC_TRADE_CHANNEL_TYPE
+        self._diff_messages_queue_key = CONSTANTS.PUBLIC_ORDERBOOK_CHANNEL_TYPE
         self._domain = domain
         self._api_factory = api_factory
 
@@ -49,8 +53,8 @@ class UpbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :return: the response from the exchange (JSON dictionary)
         """
         params = {
-            "symbol": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
-            "limit": "1000"
+            "markets": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
+            # "level": 0
         }
 
         rest_assistant = await self._api_factory.get_rest_assistant()
@@ -61,7 +65,7 @@ class UpbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
             throttler_limit_id=CONSTANTS.SNAPSHOT_PATH_URL,
         )
 
-        return data
+        return data[0]
 
     async def _subscribe_channels(self, ws: WSAssistant):
         """
@@ -126,8 +130,8 @@ class UpbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
             import uuid
             ticket = str(uuid.uuid4())
             payload.append({"ticket": ticket})
-            payload.extend(trades_payload)
-            payload.extend(order_book_payload)
+            payload.append(trades_payload)
+            payload.append(order_book_payload)
             payload.append({"format": "SIMPLE"})  # "SIMPLE" or "DEFAULT"
             # json.dumps(payload)
 
@@ -162,23 +166,38 @@ class UpbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return snapshot_msg
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        if "result" not in raw_message:
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["cd"])  # code
-            trade_message = UpbitOrderBook.trade_message_from_exchange(
-                raw_message, {"trading_pair": trading_pair})
-            message_queue.put_nowait(trade_message)
+        # preprocessing for message
+        raw_message = upbit_utils.preprocessing_message(raw_message)
+        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["cd"])  # code
+        trade_message = UpbitOrderBook.trade_message_from_exchange(
+            raw_message, {"trading_pair": trading_pair})
+        message_queue.put_nowait(trade_message)
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        if "result" not in raw_message:
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["cd"])  # code
-            order_book_message: OrderBookMessage = UpbitOrderBook.diff_message_from_exchange(
-                raw_message, time.time(), {"trading_pair": trading_pair})
-            message_queue.put_nowait(order_book_message)
+        raw_message = upbit_utils.preprocessing_message(raw_message)
+        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["cd"])  # code
+        order_book_message: OrderBookMessage = UpbitOrderBook.diff_message_from_exchange(
+            raw_message, time.time(), {"trading_pair": trading_pair})
+        message_queue.put_nowait(order_book_message)
+
+    # def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
+    #     channel = ""
+    #     event_type = event_message.get("ty")  # ty;type
+    #     channel = (self._diff_messages_queue_key if event_type == CONSTANTS.PUBLIC_ORDERBOOK_CHANNEL_TYPE
+    #                 else self._trade_messages_queue_key if event_type == CONSTANTS.PUBLIC_TRADE_CHANNEL_TYPE else "")
+    #     return channel
 
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
         channel = ""
-        if "result" not in event_message:
-            event_type = event_message.get("e")
-            channel = (self._diff_messages_queue_key if event_type == CONSTANTS.DIFF_EVENT_TYPE
-                       else self._trade_messages_queue_key)
+        # preprocessing for message
+        event_message = upbit_utils.preprocessing_message(event_message)
+        if event_message.get("error") is not None:
+            err_msg = event_message.get("error", {}).get("message", event_message.get("error"))
+            raise IOError(f"Error event received from the server ({err_msg})")
+        # ty;type
+        elif event_message.get("ty") == CONSTANTS.PUBLIC_ORDERBOOK_CHANNEL_TYPE:
+            channel = self._diff_messages_queue_key
+        elif event_message.get("ty") == CONSTANTS.PUBLIC_TRADE_CHANNEL_TYPE:
+            channel = self._trade_messages_queue_key
+
         return channel

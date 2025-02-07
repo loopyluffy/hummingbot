@@ -3,7 +3,9 @@ import asyncio
 # import time
 from typing import TYPE_CHECKING, List, Optional
 
-from hummingbot.connector.exchange.upbit import upbit_constants as CONSTANTS  # , upbit_web_utils as web_utils
+from hummingbot.connector.exchange.upbit import (  # upbit_utils as upbit_utils,; upbit_web_utils as web_utils,
+    upbit_constants as CONSTANTS,
+)
 from hummingbot.connector.exchange.upbit.upbit_auth import UpbitAuth
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 
@@ -27,25 +29,20 @@ class UpbitAPIUserStreamDataSource(UserStreamTrackerDataSource):
                  auth: UpbitAuth,
                  trading_pairs: List[str],
                  connector: 'UpbitExchange',
-                 api_factory: WebAssistantsFactory,
-                 domain: str = CONSTANTS.DEFAULT_DOMAIN):
+                 api_factory: WebAssistantsFactory):
         super().__init__()
         self._auth: UpbitAuth = auth
-        self._current_listen_key = None
-        self._domain = domain
         self._api_factory = api_factory
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
-        """
-        Creates an instance of WSAssistant connected to the exchange
-        """
+        # ws: WSAssistant = await self._api_factory.get_ws_assistant()
         ws: WSAssistant = await self._get_ws_assistant()
-        # url = f"{CONSTANTS.WSS_URL.format(self._domain)}/{self._current_listen_key}"
-        url = f"{CONSTANTS.WSS_PRIVATE_URL.format(CONSTANTS.PUBLIC_API_VERSION)}/{self._current_listen_key}"
-        await ws.connect(ws_url=url, ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
+        await ws.connect(ws_url=CONSTANTS.WSS_PRIVATE_URL.format(CONSTANTS.PRIVATE_API_VERSION),
+                         ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL,
+                         ws_headers=self._auth.get_auth_headers())
         return ws
 
-    async def _subscribe_channels(self, ws: WSAssistant):
+    async def _subscribe_channels(self, websocket_assistant: WSAssistant):
         try:
             payload = []
             asset_payload = {
@@ -60,20 +57,20 @@ class UpbitAPIUserStreamDataSource(UserStreamTrackerDataSource):
             import uuid
             ticket = str(uuid.uuid4())
             payload.append({"ticket": ticket})
-            payload.extend(asset_payload)
-            payload.extend(order_payload)
+            payload.append(asset_payload)
+            payload.append(order_payload)
             payload.append({"format": "SIMPLE"})  # "SIMPLE" or "DEFAULT"
             # json.dumps(payload)
 
-            subscribe_request: WSJSONRequest = WSJSONRequest(payload=payload)
-            await ws.send(subscribe_request)
+            subscribe_request: WSJSONRequest = WSJSONRequest(payload=payload, is_auth_required=True)
+            await websocket_assistant.send(subscribe_request)
 
-            self.logger().info("Subscribed to public order book and trade channels...")
+            self.logger().info("Subscribed to private order and asset channels...")
         except asyncio.CancelledError:
             raise
         except Exception:
             self.logger().error(
-                "Unexpected error occurred subscribing to order book trading and delta streams...",
+                "Unexpected error occurred subscribing to private order and asset streams...",
                 exc_info=True
             )
             raise
