@@ -92,7 +92,8 @@ class UpbitExchange(ExchangePyBase):
 
     @property
     def trading_rules_request_path(self):
-        return CONSTANTS.EXCHANGE_INFO_ORDER_PATH_URL
+        # return CONSTANTS.EXCHANGE_INFO_ORDER_PATH_URL
+        return CONSTANTS.EXCHANGE_INFO_MARKET_PATH_URL
 
     @property
     def trading_pairs_request_path(self):
@@ -119,9 +120,22 @@ class UpbitExchange(ExchangePyBase):
         # return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
         return [OrderType.LIMIT]
 
-    # async def get_all_pairs_prices(self) -> List[Dict[str, str]]:
-    #     pairs_prices = await self._api_get(path_url=CONSTANTS.TICKER_BOOK_PATH_URL)
-    #     return pairs_prices
+    async def get_all_pairs_prices(self) -> List[Dict[str, str]]:
+        res = []
+        params = {
+            "quote_currencies": "KRW"  # "KRW,BTC"
+        }
+        pairs_prices = await self._api_request(
+            method=RESTMethod.GET,
+            path_url=CONSTANTS.TICKER_PRICE_ALL_PATH_URL,
+            params=params
+        )
+        for pair_price_data in pairs_prices:
+            result = {}
+            result["trading_pair"] = await self.trading_pair_associated_to_exchange_symbol(pair_price_data["market"])
+            result["price"] = pair_price_data["trade_price"]
+            res.append(result)
+        return res
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         # error_description = str(request_exception)
@@ -134,14 +148,20 @@ class UpbitExchange(ExchangePyBase):
         # The default implementation was added when the functionality to detect not found orders was introduced in the
         # ExchangePyBase class. Also fix the unit test test_lost_order_removed_if_not_found_during_order_status_update
         # when replacing the dummy implementation
-        return False
+        return str(CONSTANTS.ORDER_ERROR_CODE) in str(
+            status_update_exception
+        )  # and CONSTANTS.CANCELED_ORDER_MESSAGE in str(cancelation_exception)
+        # return False
 
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
         # TODO: implement this method correctly for the connector
         # The default implementation was added when the functionality to detect not found orders was introduced in the
         # ExchangePyBase class. Also fix the unit test test_cancel_order_not_found_in_the_exchange when replacing the
         # dummy implementation
-        return False
+        return str(CONSTANTS.ORDER_ERROR_CODE) in str(
+            cancelation_exception
+        )  # and CONSTANTS.CANCELED_ORDER_MESSAGE in str(cancelation_exception)
+        # return False
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
@@ -205,11 +225,16 @@ class UpbitExchange(ExchangePyBase):
         try:
             order_result = await self._api_post(
                 path_url=CONSTANTS.CREATE_ORDER_PATH_URL,
-                data=api_params,
+                params=api_params,
+                # data=api_params,
                 is_auth_required=True)
             o_id = str(order_result["uuid"])
             # transact_time = order_result["created_at"] * 1e-3
-            transact_time = datetime.fromisoformat(order_result["created_at"])
+            # transact_time = datetime.fromisoformat(order_result["created_at"])
+            # Convert to datetime object
+            dt = datetime.fromisoformat(order_result["created_at"])
+            # Convert to Unix timestamp (seconds since epoch)
+            transact_time = dt.timestamp()
         except IOError as e:
             error_description = str(e)
             is_server_overloaded = ("status is 503" in error_description
@@ -231,7 +256,8 @@ class UpbitExchange(ExchangePyBase):
             path_url=CONSTANTS.CANCEL_ORDER_PATH_URL,
             params=api_params,
             is_auth_required=True)
-        if cancel_result.get("status") == "CANCELED":
+        # if cancel_result.get("status") == "CANCELED":
+        if cancel_result.get("identifier") == order_id:
             return True
         return False
 
@@ -325,7 +351,7 @@ class UpbitExchange(ExchangePyBase):
                 all_fills_response = await self._api_get(
                     path_url=CONSTANTS.ORDER_PATH_URL,
                     params={
-                        "market": trading_pair,
+                        # "market": trading_pair,
                         "uuids[]": [order.exchange_order_id]
                     },
                     is_auth_required=True)
@@ -418,26 +444,55 @@ class UpbitExchange(ExchangePyBase):
 
         resp_json = await self._api_request(
             method=RESTMethod.GET,
-            path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL,
+            path_url=CONSTANTS.TICKER_PRICE_PATH_URL,
             params=params
         )
 
         return float(resp_json[0]["trade_price"])
 
     async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
-        return []
+        # return []
+        trading_rules = {}
+        for exchange_info in exchange_info_dict:
+            if upbit_utils.is_exchange_information_valid(exchange_info=exchange_info):
+                try:
+                    exchange_symbol = exchange_info["market"]
+                    trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=exchange_symbol)
+                    # collateral_token = instrument["supportMarginCoins"][0]
+                    trading_rules[trading_pair] = TradingRule(
+                        trading_pair=trading_pair,
+                        # min_price_increment=self.get_order_price_quantum(trading_pair), # tick_size
+                        min_price_increment=self.get_order_size_quantum(trading_pair),  # tick_size
+                        min_base_amount_increment=self.get_order_size_quantum(trading_pair),  # lot_size
+                        # min_order_size=self.get_min_order_size(trading_pair, price=),
+                        min_order_size=0,
+                        min_notional_size=self.get_min_notional_size(trading_pair),
+                    )
+                except Exception:
+                    self.logger().exception(f"Error parsing the trading pair rule: {exchange_info}. Skipping.")
+        return list(trading_rules.values())
 
-    async def _update_trading_rules(self):
-        # upbit's rule is static...
-        # define order_price_quantum and order_size_quantum manually;;
-        # dummy data for compatibility
-        self._trading_rules["LOOPY-KRW"] = TradingRule("LOOPY-KRW")
+    # async def _update_trading_rules(self):
+    #     # upbit's rule is static...
+    #     # define order_price_quantum and order_size_quantum manually;;
+    #     # dummy data for compatibility
+    #     self._trading_rules["LOOPY-KRW"] = TradingRule("LOOPY-KRW")
+    # ExchangePyBase._update_trading_rules
+    #   exchange_info = await self._make_trading_rules_request()
+    #   trading_rules_list = await self._format_trading_rules(exchange_info)
+    #   self._trading_rules.clear()
+    #   for trading_rule in trading_rules_list:
+    #       self._trading_rules[trading_rule.trading_pair] = trading_rule
+    #   self._initialize_trading_pair_symbols_from_exchange_info(exchange_info=exchange_info)
 
     def get_order_price_quantum(self, trading_pair: str, price: Decimal) -> Decimal:
         # reference https://docs.upbit.com/docs/krw-market-info
         base_asset, quote_asset = trading_pair.split("-")
         tick_size = 0
         exception_krw_market = ["ADA", "ALGO", "BLUR", "CELO", "ELF", "EOS", "GRS", "GRT", "ICX", "MANA", "MINA", "POL", "SAND", "SEI", "STG", "TRX"]
+
+        # if price is None:
+        #     price = self.get_price_by_type(trading_pair, PriceType.LastTrade)
 
         if quote_asset == "KRW":
             if price >= 2000000:
@@ -491,18 +546,31 @@ class UpbitExchange(ExchangePyBase):
 
         return Decimal(tick_size)
 
-    def get_order_size_quantum(self, trading_pair: str, order_size: Decimal) -> Decimal:
+    def get_order_size_quantum(self, trading_pair: str, order_size: Decimal = None) -> Decimal:
         base_asset, quote_asset = trading_pair.split("-")
-        size_quantum = 0
-
-        if quote_asset == "KRW":
-            size_quantum = 5000
-        elif quote_asset == "BTC":
-            size_quantum = 0.00005
-        elif quote_asset == "USDT":
-            size_quantum = 0.5
+        size_quantum = 0.00000001
 
         return Decimal(size_quantum)
+
+    def get_min_notional_size(self, trading_pair: str) -> Decimal:
+        base_asset, quote_asset = trading_pair.split("-")
+        min_notional = 0
+
+        if quote_asset == "KRW":
+            min_notional = 5000
+        elif quote_asset == "BTC":
+            min_notional = 0.00005
+        elif quote_asset == "USDT":
+            min_notional = 0.5
+
+        return Decimal(min_notional)
+
+    def get_min_order_size(self, trading_pair: str, price: Decimal) -> Decimal:
+        base_asset, quote_asset = trading_pair.split("-")
+        min_notional_size = self.get_min_notional_size(trading_pair)
+        min_order_size = min_notional_size / price
+
+        return Decimal(min_order_size)
 
     # def get_order_price_quantum(self, trading_pair: str, price: Decimal) -> Decimal:
     #     """

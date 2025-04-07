@@ -1,12 +1,13 @@
 import hashlib
+
+# import hmac
+# import json
 import uuid
 
 # from collections import OrderedDict
 # from typing import Any, Dict
 from urllib.parse import unquote, urlencode
 
-# import hmac
-# import json
 import jwt
 
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
@@ -63,8 +64,13 @@ class UpbitAuth(AuthBase):
             'access_key': self.api_key,
             'nonce': str(uuid.uuid4())
         }
+        # if data:
         if isinstance(data, dict):
             params.update(data)
+            # else:
+            #     data_dict = json.loads(data)
+            #     params.update(data_dict)
+            #     # params.update(json.loads(data))
         if params:
             query_string = unquote(urlencode(params, doseq=True)).encode("utf-8")
             m = hashlib.sha512()

@@ -21,7 +21,8 @@ PRIVATE_API_VERSION = "v1"
 # SERVER_TIME_PATH_URL = "/time"
 EXCHANGE_INFO_MARKET_PATH_URL = "/market/all"
 EXCHANGE_INFO_ORDER_PATH_URL = "orders/chance"
-TICKER_PRICE_CHANGE_PATH_URL = "/ticker"
+TICKER_PRICE_ALL_PATH_URL = "/ticker/all"
+TICKER_PRICE_PATH_URL = "/ticker"
 SNAPSHOT_PATH_URL = "/orderbook"
 
 # Private API endpoints
@@ -98,12 +99,21 @@ OUT_OF_SCOPE_ERROR = "out_of_scope"
 RATE_LIMITS = [
     RateLimit(limit_id=EXCHANGE_INFO_MARKET_PATH_URL, limit=10, time_interval=1),
     RateLimit(limit_id=EXCHANGE_INFO_ORDER_PATH_URL, limit=10, time_interval=1),
-    RateLimit(limit_id=TICKER_PRICE_CHANGE_PATH_URL, limit=10, time_interval=1),
+    RateLimit(limit_id=TICKER_PRICE_PATH_URL, limit=10, time_interval=1),
+    RateLimit(limit_id=TICKER_PRICE_ALL_PATH_URL, limit=10, time_interval=1),
     RateLimit(limit_id=SNAPSHOT_PATH_URL, limit=10, time_interval=1),
     RateLimit(limit_id=ACCOUNTS_PATH_URL, limit=10, time_interval=1),
     RateLimit(limit_id=WALLET_PATH_URL, limit=10, time_interval=1),
+    RateLimit(limit_id=ORDER_PATH_URL, limit=10, time_interval=1),
     RateLimit(limit_id=CLOSED_ORDER_PATH_URL, limit=10, time_interval=1),
     RateLimit(limit_id=OPEN_ORDER_PATH_URL, limit=10, time_interval=1),
     RateLimit(limit_id=CREATE_ORDER_PATH_URL, limit=8, time_interval=1),
     RateLimit(limit_id=CANCEL_ORDER_PATH_URL, limit=30, time_interval=1)
 ]
+
+ORDER_ERROR_CODE = 400
+# ORDER_NOT_EXIST_MESSAGE = "Order does not exist"
+CANCELED_ORDER_MESSAGE = "canceled_order"
+# UNKNOWN_ORDER_ERROR_CODE = -2011
+# UNKNOWN_ORDER_MESSAGE = "Unknown order sent"
+# HTTP status is 400. Error: {"error":{"name":"canceled_order","message":"이미 취소된 주문입니다."}}
