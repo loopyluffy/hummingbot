@@ -288,6 +288,13 @@ class BinanceExchange(ExchangePyBase):
         """
         pass
 
+    # is this update right??? @luffy
+    def _is_user_stream_initialized(self):
+        # return self._user_stream_tracker.data_source.last_recv_time > 0 or not self.is_trading_required
+        original_cond = super()._is_user_stream_initialized()
+        extra_cond = self._user_stream_tracker.data_source._current_listen_key is not None
+        return original_cond or extra_cond
+
     async def _user_stream_event_listener(self):
         """
         This functions runs in background continuously processing the events received from the exchange by the user

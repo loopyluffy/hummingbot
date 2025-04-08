@@ -28,7 +28,8 @@ SNAPSHOT_PATH_URL = "/orderbook"
 # Private API endpoints
 ACCOUNTS_PATH_URL = "/accounts"
 WALLET_PATH_URL = "/status/wallet"
-ORDER_PATH_URL = "/orders/uuids"
+ORDER_PATH_URL = "/order"
+ORDER_STATUS_URL = "/orders/uuids"
 CLOSED_ORDER_PATH_URL = "/orders/closed"
 OPEN_ORDER_PATH_URL = "/orders/open"
 CREATE_ORDER_PATH_URL = "/orders"  # post
@@ -105,6 +106,7 @@ RATE_LIMITS = [
     RateLimit(limit_id=ACCOUNTS_PATH_URL, limit=10, time_interval=1),
     RateLimit(limit_id=WALLET_PATH_URL, limit=10, time_interval=1),
     RateLimit(limit_id=ORDER_PATH_URL, limit=10, time_interval=1),
+    RateLimit(limit_id=ORDER_STATUS_URL, limit=10, time_interval=1),
     RateLimit(limit_id=CLOSED_ORDER_PATH_URL, limit=10, time_interval=1),
     RateLimit(limit_id=OPEN_ORDER_PATH_URL, limit=10, time_interval=1),
     RateLimit(limit_id=CREATE_ORDER_PATH_URL, limit=8, time_interval=1),

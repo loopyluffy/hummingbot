@@ -92,7 +92,6 @@ class UpbitExchange(ExchangePyBase):
 
     @property
     def trading_rules_request_path(self):
-        # return CONSTANTS.EXCHANGE_INFO_ORDER_PATH_URL
         return CONSTANTS.EXCHANGE_INFO_MARKET_PATH_URL
 
     @property
@@ -303,13 +302,12 @@ class UpbitExchange(ExchangePyBase):
                             #     percent_token="KRW",
                             #     flat_fees=[TokenAmount(amount=Decimal(event_message["pf"]), token="KRW")] # pf;paid_fee
                             # )
-                            fee = event_message["pf"]  # pf;paid_fee
                             trade_update = TradeUpdate(
                                 trade_id=str(event_message["tuid"]),  # tuid;trade_uuid
                                 client_order_id=client_order_id,
                                 exchange_order_id=str(event_message["uid"]),  # uid;uuid
                                 trading_pair=fillable_order.trading_pair,
-                                fee=fee,
+                                fee=event_message["pf"],  # pf;paid_fee
                                 fill_base_amount=Decimal(event_message["ev"]),  # ev;executed_volume
                                 fill_quote_amount=Decimal(event_message["ef"]),  # ef;executed_funds
                                 # fill_quote_amount=Decimal(event_message["ev"]) * Decimal(event_message["ap"]),
@@ -344,6 +342,47 @@ class UpbitExchange(ExchangePyBase):
                 await self._sleep(5.0)
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
+        trade_updates = []
+        try:
+            if order.exchange_order_id is not None:
+                trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
+                order_response = await self._api_get(
+                    path_url=CONSTANTS.ORDER_PATH_URL,
+                    params={
+                        "uuid": order.exchange_order_id
+                    },
+                    is_auth_required=True)
+
+                for trade in order_response["trades"]:
+                    # fee = TradeFeeBase.new_spot_fee(
+                    #     fee_schema=self.trade_fee_schema(),
+                    #     trade_type=fillable_order.trade_type,
+                    #     percent_token="KRW",
+                    #     flat_fees=[TokenAmount(amount=Decimal(event_message["pf"]), token="KRW")] # pf;paid_fee
+                    # )
+                    fee = order_response["paid_fee"] / order_response["trades_count"]
+                    trade_update = TradeUpdate(
+                        trade_id=trade["uuid"],
+                        client_order_id=order.client_order_id,
+                        exchange_order_id=order_response["uuid"],
+                        trading_pair=trading_pair,
+                        fee=fee,
+                        fill_base_amount=Decimal(trade["volume"]),
+                        fill_quote_amount=Decimal(trade["funds"]),
+                        fill_price=Decimal(trade["price"]),  # ap;avg_price
+                        fill_timestamp=datetime.fromisoformat(trade["created_at"]).timestamp(),
+                    )
+                    trade_updates.append(trade_update)
+        except asyncio.CancelledError:
+            raise
+        except Exception as ex:
+            is_error_caused_by_unexistent_order = '"code":50005' in str(ex)
+            if not is_error_caused_by_unexistent_order:
+                raise
+
+        return trade_updates
+
+    async def _all_trade_updates_for_order_legacy(self, order: InFlightOrder) -> List[TradeUpdate]:
         trade_updates = []
         try:
             if order.exchange_order_id is not None:
@@ -389,7 +428,7 @@ class UpbitExchange(ExchangePyBase):
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
         updated_order_data = await self._api_get(
-            path_url=CONSTANTS.ORDER_PATH_URL,
+            path_url=CONSTANTS.ORDER_STATUS_URL,
             params={
                 "market": trading_pair,
                 "uuids[]": [tracked_order.exchange_order_id]},
