@@ -22,7 +22,7 @@ from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TradeFeeBase
+from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 
 # from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
@@ -296,18 +296,20 @@ class UpbitExchange(ExchangePyBase):
                         #                                            OrderState.FILLED]
                         # is_fill_candidate_by_amount = fillable_order.executed_amount_base < Decimal(event_message["ev"]) # ev;executed_volume
                         if execution_type == "trade":
-                            # fee = TradeFeeBase.new_spot_fee(
-                            #     fee_schema=self.trade_fee_schema(),
-                            #     trade_type=fillable_order.trade_type,
-                            #     percent_token="KRW",
-                            #     flat_fees=[TokenAmount(amount=Decimal(event_message["pf"]), token="KRW")] # pf;paid_fee
-                            # )
+                            fee = TradeFeeBase.new_spot_fee(
+                                fee_schema=self.trade_fee_schema(),
+                                trade_type=fillable_order.trade_type,
+                                # percent_token="KRW",
+                                flat_fees=[TokenAmount(amount=Decimal(event_message["pf"]), token="KRW")]  # pf;paid_fee
+                            )
                             trade_update = TradeUpdate(
                                 trade_id=str(event_message["tuid"]),  # tuid;trade_uuid
                                 client_order_id=client_order_id,
                                 exchange_order_id=str(event_message["uid"]),  # uid;uuid
                                 trading_pair=fillable_order.trading_pair,
-                                fee=event_message["pf"],  # pf;paid_fee
+                                # fee=event_message["pf"],  # pf;paid_fee
+                                # fee=DeductedFromReturnsTradeFee(flat_fees=[TokenAmount(amount=Decimal(event_message["pf"]), token="KRW")]),
+                                fee=fee,
                                 fill_base_amount=Decimal(event_message["ev"]),  # ev;executed_volume
                                 fill_quote_amount=Decimal(event_message["ef"]),  # ef;executed_funds
                                 # fill_quote_amount=Decimal(event_message["ev"]) * Decimal(event_message["ap"]),
@@ -345,7 +347,7 @@ class UpbitExchange(ExchangePyBase):
         trade_updates = []
         try:
             if order.exchange_order_id is not None:
-                trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
+                # trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
                 order_response = await self._api_get(
                     path_url=CONSTANTS.ORDER_PATH_URL,
                     params={
@@ -354,18 +356,20 @@ class UpbitExchange(ExchangePyBase):
                     is_auth_required=True)
 
                 for trade in order_response["trades"]:
-                    # fee = TradeFeeBase.new_spot_fee(
-                    #     fee_schema=self.trade_fee_schema(),
-                    #     trade_type=fillable_order.trade_type,
-                    #     percent_token="KRW",
-                    #     flat_fees=[TokenAmount(amount=Decimal(event_message["pf"]), token="KRW")] # pf;paid_fee
-                    # )
-                    fee = order_response["paid_fee"] / order_response["trades_count"]
+                    trade_paid_fee = Decimal(order_response["paid_fee"]) / order_response["trades_count"]
+                    fee = TradeFeeBase.new_spot_fee(
+                        fee_schema=self.trade_fee_schema(),
+                        trade_type=order.trade_type,
+                        # percent_token="KRW",
+                        flat_fees=[TokenAmount(amount=Decimal(trade_paid_fee), token="KRW")]
+                    )
                     trade_update = TradeUpdate(
                         trade_id=trade["uuid"],
                         client_order_id=order.client_order_id,
                         exchange_order_id=order_response["uuid"],
-                        trading_pair=trading_pair,
+                        # trading_pair=trading_pair,
+                        trading_pair=order.trading_pair,
+                        # fee=DeductedFromReturnsTradeFee(flat_fees=[TokenAmount(amount=Decimal(trade_paid_fee), token="KRW")]),
                         fee=fee,
                         fill_base_amount=Decimal(trade["volume"]),
                         fill_quote_amount=Decimal(trade["funds"]),
