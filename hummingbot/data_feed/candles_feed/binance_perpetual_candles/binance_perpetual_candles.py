@@ -109,15 +109,19 @@ class BinancePerpetualCandles(CandlesBase):
 
     def _parse_websocket_message(self, data):
         candles_row_dict: Dict[str, Any] = {}
-        if data is not None and data.get("e") == "kline":  # data will be None when the websocket is disconnected
-            candles_row_dict["timestamp"] = self.ensure_timestamp_in_seconds(data["k"]["t"])
-            candles_row_dict["open"] = data["k"]["o"]
-            candles_row_dict["low"] = data["k"]["l"]
-            candles_row_dict["high"] = data["k"]["h"]
-            candles_row_dict["close"] = data["k"]["c"]
-            candles_row_dict["volume"] = data["k"]["v"]
-            candles_row_dict["quote_asset_volume"] = data["k"]["q"]
-            candles_row_dict["n_trades"] = data["k"]["n"]
-            candles_row_dict["taker_buy_base_volume"] = data["k"]["V"]
-            candles_row_dict["taker_buy_quote_volume"] = data["k"]["Q"]
-            return candles_row_dict
+        if data is not None:
+            # The /market/stream combined endpoint wraps messages in {"stream": ..., "data": ...}
+            if "data" in data:
+                data = data["data"]
+            if data.get("e") == "kline":  # data will be None when the websocket is disconnected
+                candles_row_dict["timestamp"] = self.ensure_timestamp_in_seconds(data["k"]["t"])
+                candles_row_dict["open"] = data["k"]["o"]
+                candles_row_dict["low"] = data["k"]["l"]
+                candles_row_dict["high"] = data["k"]["h"]
+                candles_row_dict["close"] = data["k"]["c"]
+                candles_row_dict["volume"] = data["k"]["v"]
+                candles_row_dict["quote_asset_volume"] = data["k"]["q"]
+                candles_row_dict["n_trades"] = data["k"]["n"]
+                candles_row_dict["taker_buy_base_volume"] = data["k"]["V"]
+                candles_row_dict["taker_buy_quote_volume"] = data["k"]["Q"]
+                return candles_row_dict

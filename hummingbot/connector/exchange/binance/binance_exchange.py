@@ -2,6 +2,10 @@ import asyncio
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
+
+
 from bidict import bidict
 
 from hummingbot.connector.constants import s_decimal_NaN
@@ -25,9 +29,6 @@ from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
-
-if TYPE_CHECKING:
-    from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 
 class BinanceExchange(ExchangePyBase):
@@ -288,13 +289,6 @@ class BinanceExchange(ExchangePyBase):
         """
         pass
 
-    # is this update right??? @luffy
-    # def _is_user_stream_initialized(self):
-    #     # return self._user_stream_tracker.data_source.last_recv_time > 0 or not self.is_trading_required
-    #     original_cond = super()._is_user_stream_initialized()
-    #     extra_cond = self._user_stream_tracker.data_source._current_listen_key is not None
-    #     return original_cond or extra_cond
-
     async def _user_stream_event_listener(self):
         """
         This functions runs in background continuously processing the events received from the exchange by the user
@@ -304,7 +298,7 @@ class BinanceExchange(ExchangePyBase):
         async for event_message in self._iter_user_event_queue():
             try:
                 event_type = event_message.get("e")
-                # Refer to https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md
+                # Refer to https://developers.binance.com/docs/binance-spot-api-docs/user-data-stream
                 # As per the order update section in Binance the ID of the order being canceled is under the "C" key
                 if event_type == "executionReport":
                     execution_type = event_message.get("x")

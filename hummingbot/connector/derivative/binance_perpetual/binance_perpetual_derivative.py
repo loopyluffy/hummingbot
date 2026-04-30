@@ -4,6 +4,10 @@ from collections import defaultdict
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional, Tuple
 
+if TYPE_CHECKING:
+    from hummingbot.client.config.config_helpers import ClientConfigAdapter
+
+
 from bidict import bidict
 
 from hummingbot.connector.constants import s_decimal_NaN
@@ -31,9 +35,6 @@ from hummingbot.core.data_type.user_stream_tracker_data_source import UserStream
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
-
-if TYPE_CHECKING:
-    from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 bpm_logger = None
 
@@ -256,15 +257,17 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
             api_params["timeInForce"] = CONSTANTS.TIME_IN_FORCE_GTC
         if order_type == OrderType.LIMIT_MAKER:
             api_params["timeInForce"] = CONSTANTS.TIME_IN_FORCE_GTX
-        if self._position_mode == PositionMode.HEDGE:
+        if self.position_mode == PositionMode.HEDGE:
             if position_action == PositionAction.OPEN:
                 api_params["positionSide"] = "LONG" if trade_type is TradeType.BUY else "SHORT"
             else:
                 api_params["positionSide"] = "SHORT" if trade_type is TradeType.BUY else "LONG"
+
         # reduce only option @luffy
         if position_action == PositionAction.CLOSE:
             api_params["closePosition"] = False
             api_params["reduceOnly"] = True
+
         try:
             order_result = await self._api_post(
                 path_url=CONSTANTS.ORDER_URL,

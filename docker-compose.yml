@@ -29,10 +29,10 @@ services:
     #    - CONFIG_PASSWORD=a
     #    - CONFIG_FILE_NAME=simple_pmm_example.py
     #    - SCRIPT_CONFIG=conf_simple_pmm_example.yaml
-    #  environment:
-    #    - CONFIG_PASSWORD=${CONFIG_PASSWORD}
-    #    - CONFIG_FILE_NAME=s${CONFIG_FILE_NAME}
-    #    - SCRIPT_CONFIG=${SCRIPT_CONFIG}
+    environment:
+      - CONFIG_PASSWORD=${CONFIG_PASSWORD}
+      - CONFIG_FILE_NAME=s${CONFIG_FILE_NAME}
+      - SCRIPT_CONFIG=${SCRIPT_CONFIG}
 
 
   # gateway:
