@@ -3,14 +3,18 @@ FROM continuumio/miniconda3:latest AS builder
 
 # Install system dependencies
 RUN apt-get update && \
-    apt-get install -y sudo libusb-1.0 gcc g++ python3-dev && \
+    apt-get install -y sudo libusb-1.0 gcc g++ python3-dev git && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /home/hummingbot
 
 # Create conda environment
 COPY setup/environment.yml /tmp/environment.yml
+COPY setup/pip_requirements.txt setup/pip_requirements.txt
 RUN conda env create -f /tmp/environment.yml && \
+    /opt/conda/envs/hummingbot/bin/pip install --no-cache-dir --pre -r setup/pip_requirements.txt && \
+    /opt/conda/envs/hummingbot/bin/pip install --no-deps pandas-ta-openbb && \
+    sed -i 's/import importlib/import importlib.metadata/' /opt/conda/envs/hummingbot/lib/python3.10/site-packages/pandas_ta/maps.py && \
     conda clean -afy && \
     rm /tmp/environment.yml
 
@@ -56,7 +60,7 @@ ENV INSTALLATION_TYPE=docker
 
 # Install system dependencies
 RUN apt-get update && \
-    apt-get install -y sudo libusb-1.0 && \
+    apt-get install -y sudo libusb-1.0 vim && \
     rm -rf /var/lib/apt/lists/*
 
 # Create mount points

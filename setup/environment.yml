@@ -49,12 +49,12 @@ dependencies:
     - gql
     - grpcio-tools
     - hexbytes
-    - importlib-metadata==0.23
+    - importlib-metadata>=4.0.0
     - injective-py==1.6.*
     - jsonpickle==3.0.1
     - mypy-extensions==0.4.3
     - msgpack
-    - pandas_ta==0.3.14b
+    - pandas-ta-openbb
     - pre-commit==2.18.1
     - psutil==5.7.2
     - ptpython==3.0.20
