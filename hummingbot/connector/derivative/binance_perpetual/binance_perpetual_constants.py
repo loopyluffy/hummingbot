@@ -5,6 +5,13 @@ EXCHANGE_NAME = "binance_perpetual"
 BROKER_ID = "x-nbQe1H39"
 MAX_ORDER_ID_LEN = 32
 
+# Contract types admitted into the tradable symbol map (see web_utils.is_exchange_information_valid).
+# Includes Binance "TRADIFI_PERPETUAL" contracts — tokenized equities/commodities such as XAUUSDT
+# (gold), TSLAUSDT, HK0700USDT. NOTE: unlike 24/7 crypto perps, these follow the trading-hours and
+# settlement calendar of their underlying (equity/commodity), so expect no fills outside the
+# underlying's market hours. Remove "TRADIFI_PERPETUAL" to restrict the connector to crypto perps.
+SUPPORTED_CONTRACT_TYPES = ("PERPETUAL", "TRADIFI_PERPETUAL")
+
 DOMAIN = EXCHANGE_NAME
 TESTNET_DOMAIN = "binance_perpetual_testnet"
 

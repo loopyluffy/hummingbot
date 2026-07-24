@@ -509,7 +509,13 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
         for rule in rules:
             try:
                 if web_utils.is_exchange_information_valid(rule):
-                    trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=rule["symbol"])
+                    try:
+                        trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=rule["symbol"])
+                    except KeyError:
+                        # Symbol is valid on the exchange but not tracked in the connector's symbol
+                        # map (e.g. a contract type we don't admit, or one dropped as an unresolved
+                        # duplicate). This is a routine skip — don't emit a full ERROR traceback.
+                        continue
                     filters = rule["filters"]
                     filt_dict = {fil["filterType"]: fil for fil in filters}
 
