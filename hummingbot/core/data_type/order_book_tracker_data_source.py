@@ -25,6 +25,18 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
         self._order_book_create_function = lambda: OrderBook()
         self._message_queue: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
 
+    def add_trading_pair(self, trading_pair: str):
+        """
+        Tracks a trading pair added at runtime, so a websocket reconnect subscribes it again.
+        The list is shared with the connector and the order book tracker.
+        """
+        if trading_pair not in self._trading_pairs:
+            self._trading_pairs.append(trading_pair)
+
+    def remove_trading_pair(self, trading_pair: str):
+        if trading_pair in self._trading_pairs:
+            self._trading_pairs.remove(trading_pair)
+
     @classmethod
     def logger(cls) -> HummingbotLogger:
         if cls._logger is None:

@@ -142,6 +142,63 @@ class OrderBookTracker:
     async def wait_ready(self):
         await self._order_books_initialized.wait()
 
+    async def add_trading_pair(self, trading_pair: str) -> bool:
+        """
+        Tracks a trading pair added at runtime: subscribes its channels on the open websockets, takes a snapshot and
+        starts its tracking task. Diffs that arrive before the snapshot wait in the saved queue, as at boot; the ones
+        the snapshot already contains are dropped.
+        """
+        if trading_pair in self._order_books:
+            return True
+        if not self._order_books_initialized.is_set():
+            self.logger().warning(f"Cannot add {trading_pair}: the order books are still initializing.")
+            return False
+        try:
+            if not await self._data_source.subscribe_to_trading_pair(trading_pair):
+                return False
+            order_book = await self._initial_order_book_for_trading_pair(trading_pair)
+            saved = self._saved_message_queues[trading_pair]
+            newer = [m for m in saved if m.update_id >= order_book.snapshot_uid]
+            saved.clear()
+            saved.extend(newer)
+            self._order_books[trading_pair] = order_book
+            self._tracking_message_queues[trading_pair] = asyncio.Queue()
+            self._tracking_tasks[trading_pair] = safe_ensure_future(self._track_single_book(trading_pair))
+            if trading_pair not in self._trading_pairs:
+                self._trading_pairs.append(trading_pair)
+            self.logger().info(f"Initialized order book for {trading_pair} (added at runtime).")
+            return True
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().exception(f"Error adding {trading_pair} to the order book tracker.")
+            await self.remove_trading_pair(trading_pair, force=True)
+            return False
+
+    async def remove_trading_pair(self, trading_pair: str, force: bool = False) -> bool:
+        """
+        Stops tracking a trading pair removed at runtime: unsubscribes its channels and drops its order book. The
+        pair leaves the shared list even if the unsubscription fails, so a websocket reconnect does not resubscribe it.
+        """
+        if trading_pair not in self._order_books and not force:
+            return False
+        try:
+            await self._data_source.unsubscribe_from_trading_pair(trading_pair)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().exception(f"Error unsubscribing {trading_pair}.")
+        task = self._tracking_tasks.pop(trading_pair, None)
+        if task is not None:
+            task.cancel()
+        self._tracking_message_queues.pop(trading_pair, None)
+        self._order_books.pop(trading_pair, None)
+        self._past_diffs_windows.pop(trading_pair, None)
+        self._saved_message_queues.pop(trading_pair, None)
+        if trading_pair in self._trading_pairs:
+            self._trading_pairs.remove(trading_pair)
+        return True
+
     async def _update_last_trade_prices_loop(self):
         '''
         Updates last trade price for all order books through REST API, it is to initiate last_trade_price and as

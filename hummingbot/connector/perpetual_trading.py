@@ -70,6 +70,22 @@ class PerpetualTrading:
         """
         self._funding_info[funding_info.trading_pair] = funding_info
 
+    def add_trading_pair(self, trading_pair: str):
+        """
+        Tracks a trading pair added at runtime. The caller initializes its funding information first.
+        The list is shared with the connector, the order book tracker and its data source.
+        """
+        if trading_pair not in self._trading_pairs:
+            self._trading_pairs.append(trading_pair)
+
+    def remove_trading_pair(self, trading_pair: str):
+        """
+        Stops tracking a trading pair removed at runtime, with its funding information.
+        """
+        if trading_pair in self._trading_pairs:
+            self._trading_pairs.remove(trading_pair)
+        self._funding_info.pop(trading_pair, None)
+
     def is_funding_info_initialized(self) -> bool:
         """
         Checks if there is funding information for all trading pairs.
