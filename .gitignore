@@ -92,3 +92,6 @@ coverage.xml
 # External SDK files
 /**/.chain_cookie
 /**/.injective_cookie
+
+# docker-compose .env (holds CONFIG_PASSWORD)
+/.env

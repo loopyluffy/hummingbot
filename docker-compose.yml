@@ -25,13 +25,32 @@ services:
     tty: true
     stdin_open: true
     network_mode: host
-    #  environment:
-    #    - CONFIG_PASSWORD=a
-    #    - CONFIG_FILE_NAME=simple_pmm_example.py
-    #    - SCRIPT_CONFIG=conf_simple_pmm_example.yaml
+    # Every ${...} below comes from the .env file next to this one (~/hummingbot/.env on each VM). The file is
+    # git-ignored and lives only on the VM: it holds CONFIG_PASSWORD. Docker Compose reads it on `up`, so a change
+    # takes effect only when the container is recreated (`docker compose up -d`), not on `docker restart`.
+    #
+    # .env on a strategy VM (quantNN):
+    #   CONFIG_PASSWORD=...                           # required, see below
+    #   CONFIG_FILE_NAME=v2_loopy_strategy.py
+    #   SCRIPT_CONFIG=conf_v2_loopy_strategy_N.yml    # N = the VM number: quant05 -> conf_v2_loopy_strategy_5.yml
+    #   HB_RESTART_POLICY=always                      # quant05 only; leave it out elsewhere
+    #
+    # Restart policy, from HB_RESTART_POLICY (default "no"):
+    #   no      — after a crash or a VM reboot the container stays down until someone starts it. Right for an idle VM
+    #             (quant02–04 since 2026-10-04): its strategy is halted and must not come back by itself.
+    #   always  — quant05, the R12 books. A planned reboot stops the container first (books paused, positions held),
+    #             then reboots, and Docker starts it again on boot; the books restore the held positions from the DB.
+    #             "unless-stopped" would leave it down, because the container was stopped by hand before the reboot.
+    #             Catch: while the container is stopped on purpose (a deploy, a halt), any VM reboot starts it again.
+    #             For a long halt switch it off without recreating: `docker update --restart no hummingbot`.
+    # `docker update --restart <policy> hummingbot` also applies a new policy to the running container at once.
+    restart: "${HB_RESTART_POLICY:-no}"
     environment:
+      # Hummingbot's password: it decrypts the exchange API keys in conf/connectors. Never commit it.
       - CONFIG_PASSWORD=${CONFIG_PASSWORD}
-      - CONFIG_FILE_NAME=s${CONFIG_FILE_NAME}
+      # The script hummingbot starts on boot (in scripts/). Empty -> it boots to the prompt and runs nothing.
+      - CONFIG_FILE_NAME=${CONFIG_FILE_NAME}
+      # That script's conf (in conf/scripts/), one per VM.
       - SCRIPT_CONFIG=${SCRIPT_CONFIG}
 
 
